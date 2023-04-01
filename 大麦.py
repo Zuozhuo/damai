@@ -148,17 +148,18 @@ def handle_iframe(driver):
     except NoSuchElementException:
         pass
     else:
-        print(div_baxia_dialog_auto.is_displayed())
+        print('iframe可见' if div_baxia_dialog_auto.is_displayed() else 'iframe不可见')
         if div_baxia_dialog_auto.is_displayed():
             iframe = div_baxia_dialog_auto.find_element(By.TAG_NAME, 'iframe')
             driver.switch_to.frame(iframe)
-            if driver.find_elements(By.XPATH, '//div[contains(text(), "滑块")]'): # 滑块验证
+            if driver.find_elements(By.ID, 'nc_1_n1z'): # 滑块验证
                 handle_slider_captcha(driver)
             elif driver.find_elements(By.XPATH, '//div[contains(text(), "网络拥堵")]'): # 网络拥堵，刷新
                 driver.switch_to.default_content()
-                cancel = driver.find_element(By.XPATH, '//div[@class="baxia-dialog-close" and text()="X"]')
+                # cancel = driver.find_element(By.XPATH, '//div[@class="baxia-dialog-close" and text()="X"]')
                 # cancel.click()
                 # print('点击了×按钮')
+                print('网络拥堵，刷新网页')
                 driver.refresh()
                 return 'refresh'
                 # driver.get(page_1_url)
@@ -186,14 +187,18 @@ def page_2(driver):
         return
 
     choose_viewer(driver, viewer.split('|'))
-    
-    btn = WebDriverWait(driver, 10, 0.001).until(EC.visibility_of_element_located((By.XPATH, '//span[text()="提交订单"]/..')))
-    if btn.is_enabled():
-        btn.click()
+
+    try:
+        btn = driver.find_element(By.XPATH, '//span[text()="提交订单"]/..')
+    except NoSuchElementException: # 没有提交订单按钮
+        return 'continue' # 返回给主函数，continue
     else:
-        # driver.execute_script("arguments[0].click();", btn)
-        actions = ActionChains(driver)
-        actions.move_to_element(btn).click().perform()
+        if btn.is_enabled():
+            btn.click()
+        else:
+            # driver.execute_script("arguments[0].click();", btn)
+            actions = ActionChains(driver)
+            actions.move_to_element(btn).click().perform()
 
 def main():
     url = ""
@@ -210,7 +215,8 @@ def main():
                 page_1_url = url
                 page_1(driver)
             elif 'm.damai.cn/app/dmfe/h5-ultron-buy/index.html?buyParam=' in url:
-                page_2(driver)
+                if page_2(driver) == 'continue':
+                    continue
             elif 'mclient.alipay.com' in url:
                 print('恭喜你！抢到票了')
                 break
@@ -220,7 +226,7 @@ def main():
 
 
 if __name__ == '__main__':
-    viewer = input('观演人(多个观演人用|分隔：')
+    viewer = input('观演人(多个观演人用|分隔)：')
     date = input('日期(yyyy-mm-dd)：')
     prices = input('价格(多个价格用|分隔，越靠前表示优先级越高)：')
     num = input('数量（须和观演人的数量一致）：')
