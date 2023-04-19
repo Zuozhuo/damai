@@ -83,9 +83,29 @@ def set_cookies(account):
     except Exception as e:
         print(e)
 
-def damai_choose_date(driver, date):
-    div = WebDriverWait(driver, 2, 0.001).until(EC.visibility_of_element_located((By.XPATH, f'//div[@class="sku-pop-wrapper"]//div[contains(text(), "{date}")]')))
-    driver.execute_script("arguments[0].click();", div)
+def damai_choose_date(driver, dates: list):
+    div = WebDriverWait(driver, 2, 0.001).until(EC.visibility_of_element_located((By.XPATH, f'//div[@class="sku-pop-wrapper"]//div[contains(text(), "{dates[0]}")]')))
+    btns = []
+    for date in dates:
+        btn = driver.find_element(By.XPATH, '//div[@class="sku-pop-wrapper"]//div[contains(text(), "{}")]/../..'.format(date))
+        btns.append(btn)
+    
+    count = 0 # 记录缺货登记的票价数量
+    for btn_date in btns:
+        try:
+            btn_date.find_element(By.XPATH, './/div[contains(text(),"无票")]')    
+        except NoSuchElementException: # 该日期没有“无票”标志，表示可选
+            # 方法一
+            driver.execute_script("arguments[0].click();", btn_date)
+
+            # 方法二，但是在开启设备模拟仿真时会造成代码堵塞
+            # actions = ActionChains(driver)
+            # actions.move_to_element(btn_date).click().perform()
+            return
+        else: # 该价位有“缺货登记”标志，表示不可选
+            count += 1
+    if count == len(btns):
+        return 'refresh'
     
 def damai_choose_price(driver, prices: list):
     WebDriverWait(driver, 2, 0.001).until(
@@ -154,8 +174,12 @@ def damai_page_1(driver):
             driver.execute_script("arguments[0].click();", book)
         finally: # 弹出窗口，开始选票
             # 选择日期
-            damai_choose_date(driver, date)
-
+            flag = damai_choose_date(driver, dates.split('|'))
+            if flag == 'refresh':
+                print(f'{dates}都无票，刷新页面')
+                js_code = "var target = document.elementFromPoint(10, 100); target.click();"
+                driver.execute_script(js_code)
+                continue
             # 选择价格
             flag = damai_choose_price(driver, prices.split('|'))
             if flag == 'refresh':
@@ -508,7 +532,7 @@ if __name__ == '__main__':
                 
                 interval_time = int(input('提前几秒刷新？(输入阿拉伯数字)：'))
             else: # 从page_1开始选
-                date = input('日期(yyyy-mm-dd)：')
+                dates = input('日期(yyyy-mm-dd)，多个日期用|分隔，越靠前优先级越高：')
                 prices = input('价格(多个价格用|分隔，越靠前表示优先级越高)：')
                 num = input('数量（须和观演人的数量一致）：')
 
